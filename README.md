@@ -32,12 +32,14 @@ const hello = (name)=> {
     * // ASTERISK
     ^ // POWER
     % // MODULUS
+    / // SLASH
     // Mathematical Assignment Operators
     +=
     -=
     *=
     ^=
     %=
+    /=
     // The dot operator -> Member Expression in the AST
     one.two.three.four
     // The Spread operator
