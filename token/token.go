@@ -2,6 +2,7 @@ package token
 
 import (
 	"fmt"
+	"strconv"
 )
 
 type TokenType string
@@ -11,6 +12,7 @@ type TokenLoc struct {
 	LineNumber  int // The line at which the token is
 	ColumnStart int // The index from the begining of the line at which the first character of the token is
 	ColumnEnd   int // The index from the begining of the line at which the last character of the token is
+	StartIndex  int // The index where the token begings in the input
 }
 
 type Token struct {
@@ -90,11 +92,19 @@ const (
 	ASSIGN     = "ASSIGN"     // =
 	TEMPLATE   = "TEMPLATE"   // $
 	NOT        = "NOT"        // !
-	NILL       = "NILL"
 )
+
+// To 3 digits e.g. from '5' -> '005'
+func to3d(num int) string {
+	res := strconv.Itoa(num)
+	for len(res) != 3 {
+		res = "0" + res
+	}
+	return res
+}
 
 func (tk *Token) Print() {
 	if tk.Loc != nil {
-		fmt.Printf("#%d [%d:%d] -> <%s:%s>\n", tk.Loc.LineNumber, tk.Loc.ColumnStart, tk.Loc.ColumnEnd, tk.Type, "'"+tk.Literal+"'")
+		fmt.Printf("#L %s [CS %s:CE %s] #I %s -> <%s:%s>\n", to3d(tk.Loc.LineNumber), to3d(tk.Loc.ColumnStart), to3d(tk.Loc.ColumnEnd), to3d(tk.Loc.StartIndex), tk.Type, "'"+tk.Literal+"'")
 	}
 }

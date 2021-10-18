@@ -66,6 +66,7 @@ func (lx *Lexer) makeToken(advance int, tType token.TokenType) token.Token {
 		LineNumber:  lx.lineCount,
 		ColumnStart: lx.columnCount - advance,
 		ColumnEnd:   lx.columnCount,
+		StartIndex:  lx.index - 1,
 	}
 	tok := token.Token{
 		Loc:     &tokenLoc,
@@ -77,19 +78,23 @@ func (lx *Lexer) makeToken(advance int, tType token.TokenType) token.Token {
 
 func (lx *Lexer) makeWordToken(advance int, word string, isKeyword bool, _type token.TokenType) token.Token {
 	_columnEnd := 0
+	_startIndex := 0
 	var _tokenType token.TokenType = token.IDENTIFIER
 	if isKeyword {
 		_tokenType = _type
 	}
 	if lx.char == 0 {
 		_columnEnd = lx.columnCount
+		_startIndex = (lx.index - 1) - advance
 	} else {
 		_columnEnd = lx.columnCount - 1
+		_startIndex = (lx.index - 2) - advance
 	}
 	tokenLoc := token.TokenLoc{
 		LineNumber:  lx.lineCount,
 		ColumnEnd:   _columnEnd,
 		ColumnStart: _columnEnd - advance,
+		StartIndex:  _startIndex,
 	}
 	tok := token.Token{
 		Loc:     &tokenLoc,
@@ -101,16 +106,20 @@ func (lx *Lexer) makeWordToken(advance int, word string, isKeyword bool, _type t
 
 func (lx *Lexer) makeNumberToken(advance int, number string) token.Token {
 	_columnEnd := 0
+	_startIndex := 0
 	if lx.char == 0 {
 		_columnEnd = lx.columnCount
+		_startIndex = (lx.index - 1) - advance
 	} else {
 		_columnEnd = lx.columnCount - 1
+		_startIndex = (lx.index - 2) - advance
 	}
 
 	tokenLoc := token.TokenLoc{
 		LineNumber:  lx.lineCount,
 		ColumnEnd:   _columnEnd,
 		ColumnStart: _columnEnd - advance,
+		StartIndex:  _startIndex,
 	}
 
 	token := token.Token{
@@ -178,9 +187,12 @@ func (lx *Lexer) readString() (string, int, *Error) {
 			advance++
 			if lx.char == 0 {
 				_err := Error{Message: fmt.Sprintf("***** Lexing Error! Unexpected EOF char at index %d *****", lx.index)}
-				return "", advance, &_err
+				return lx.input[pos : pos+advance-1], advance, &_err
 			}
 		}
+	} else if lx.char == 0 {
+		err := Error{Message: fmt.Sprintf("***** Lexing Error! Unexpected EOF char at index %d *****", lx.index)}
+		return "", advance, &err
 	}
 	return lx.input[pos : pos+advance-1], advance, nil
 }
@@ -200,10 +212,26 @@ func (lx *Lexer) makeStringToken(advance int, _string string) token.Token {
 		LineNumber:  lx.lineCount,
 		ColumnEnd:   lx.columnCount,
 		ColumnStart: lx.columnCount - advance,
+		StartIndex:  lx.index - advance,
 	}
 	token := token.Token{
-		Literal: "\"" + _string + "\"",
+		Literal: _string,
 		Type:    token.STRING,
+		Loc:     &tokenLoc,
+	}
+	return token
+}
+
+func (lx *Lexer) makeStrIllegalToken(advance int, _string string) token.Token {
+	tokenLoc := token.TokenLoc{
+		LineNumber:  lx.lineCount,
+		ColumnEnd:   lx.columnCount,
+		ColumnStart: lx.columnCount - (advance - 1),
+		StartIndex:  lx.index - advance,
+	}
+	token := token.Token{
+		Type:    token.ILLEGAL,
+		Literal: "\"" + _string,
 		Loc:     &tokenLoc,
 	}
 	return token
@@ -306,7 +334,7 @@ func (lx *Lexer) NextToken() *token.Token {
 	case '=':
 		if lx.peekChar() == '=' {
 			lx.nextChar()
-			tok = lx.makeToken(1, token.AND)
+			tok = lx.makeToken(1, token.EQ)
 		} else {
 			tok = lx.makeToken(0, token.ASSIGN)
 		}
@@ -330,7 +358,7 @@ func (lx *Lexer) NextToken() *token.Token {
 		_string, advance, err := lx.readString()
 		if err != nil {
 			fmt.Println(err.Message)
-			tok = lx.makeToken(0, token.ILLEGAL)
+			tok = lx.makeStrIllegalToken(advance, _string)
 		} else {
 			tok = lx.makeStringToken(advance, _string)
 		}
@@ -343,7 +371,7 @@ func (lx *Lexer) NextToken() *token.Token {
 				tok := lx.makeWordToken(advance, word, true, _type)
 				return &tok
 			}
-			tok = lx.makeWordToken(advance, word, false, token.NILL)
+			tok = lx.makeWordToken(advance, word, false, token.IDENTIFIER)
 			return &tok
 		} else if isDigit(lx.char) {
 			number, adavance := lx.readNumber()
