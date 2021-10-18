@@ -92,6 +92,7 @@ const (
 	ASSIGN     = "ASSIGN"     // =
 	TEMPLATE   = "TEMPLATE"   // $
 	NOT        = "NOT"        // !
+	ARROW      = "ARROW"      // =>
 )
 
 // To 3 digits e.g. from '5' -> '005'

@@ -335,6 +335,9 @@ func (lx *Lexer) NextToken() *token.Token {
 		if lx.peekChar() == '=' {
 			lx.nextChar()
 			tok = lx.makeToken(1, token.EQ)
+		} else if lx.peekChar() == '>' {
+			lx.nextChar()
+			tok = lx.makeToken(1, token.ARROW)
 		} else {
 			tok = lx.makeToken(0, token.ASSIGN)
 		}
