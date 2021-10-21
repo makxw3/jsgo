@@ -13,6 +13,7 @@ type TokenLoc struct {
 	ColumnStart int // The index from the begining of the line at which the first character of the token is
 	ColumnEnd   int // The index from the begining of the line at which the last character of the token is
 	StartIndex  int // The index where the token begings in the input
+	Advance     int // The number of chars from the first char of the token to the last char of the token
 }
 
 type Token struct {
@@ -24,6 +25,7 @@ type Token struct {
 // Supported TokenType(s)
 const (
 	// Special
+	NILL    = "NILL"
 	ILLEGAL = "ILLEGAL" // Any unsopported token
 	EOF     = "EOF"     // End-Of-File Token
 	// Identifiers
@@ -76,23 +78,25 @@ const (
 	OF        = "OF" // for of
 	IN        = "IN" // for in
 	// Symbols
-	LPAREN     = "LPAREN"     // (
-	RPAREN     = "RPAREN"     // )
-	LCBRACE    = "LCBRACE"    // {
-	RCBRACE    = "RCBRACE"    // }
-	DOT        = "DOT"        // .
-	COMMA      = "COMMA"      // ,
-	Q_MARK     = "Q_MARK"     // ?
-	COLON      = "COLON"      // :
-	SEMI_COLON = "SEMI_COLON" // ;
-	LSBRACE    = "LSBRACE"    // [
-	RSBRACE    = "RSBRACE"    // ]
-	LESS       = "LESS"       // <
-	GREATER    = "GREATER"    // >
-	ASSIGN     = "ASSIGN"     // =
-	TEMPLATE   = "TEMPLATE"   // $
-	NOT        = "NOT"        // !
-	ARROW      = "ARROW"      // =>
+	LPAREN     = "LPAREN"        // (
+	RPAREN     = "RPAREN"        // )
+	LCBRACE    = "LCBRACE"       // {
+	RCBRACE    = "RCBRACE"       // }
+	DOT        = "DOT"           // . -> Rename to Member Access Operator
+	COMMA      = "COMMA"         // ,
+	Q_MARK     = "Q_MARK"        // ?
+	COLON      = "COLON"         // :
+	SEMI_COLON = "SEMI_COLON"    // ;
+	LSBRACE    = "LSBRACE"       // [
+	RSBRACE    = "RSBRACE"       // ]
+	LESS       = "LESS"          // <
+	LESS_EQ    = "LESS OR EQ"    // <=
+	GREATER    = "GREATER"       // >
+	GREATER_EQ = "GREATER OR EQ" // >=
+	ASSIGN     = "ASSIGN"        // =
+	TEMPLATE   = "TEMPLATE"      // $
+	NOT        = "NOT"           // !
+	ARROW      = "ARROW"         // =>
 )
 
 // To 3 digits e.g. from '5' -> '005'

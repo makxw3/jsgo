@@ -67,6 +67,7 @@ func (lx *Lexer) makeToken(advance int, tType token.TokenType) token.Token {
 		ColumnStart: lx.columnCount - advance,
 		ColumnEnd:   lx.columnCount,
 		StartIndex:  lx.index - 1,
+		Advance:     advance,
 	}
 	tok := token.Token{
 		Loc:     &tokenLoc,
@@ -95,6 +96,7 @@ func (lx *Lexer) makeWordToken(advance int, word string, isKeyword bool, _type t
 		ColumnEnd:   _columnEnd,
 		ColumnStart: _columnEnd - advance,
 		StartIndex:  _startIndex,
+		Advance:     advance,
 	}
 	tok := token.Token{
 		Loc:     &tokenLoc,
@@ -120,6 +122,7 @@ func (lx *Lexer) makeNumberToken(advance int, number string) token.Token {
 		ColumnEnd:   _columnEnd,
 		ColumnStart: _columnEnd - advance,
 		StartIndex:  _startIndex,
+		Advance:     advance,
 	}
 
 	token := token.Token{
@@ -213,6 +216,7 @@ func (lx *Lexer) makeStringToken(advance int, _string string) token.Token {
 		ColumnEnd:   lx.columnCount,
 		ColumnStart: lx.columnCount - advance,
 		StartIndex:  lx.index - advance,
+		Advance:     advance,
 	}
 	token := token.Token{
 		Literal: _string,
@@ -228,6 +232,7 @@ func (lx *Lexer) makeStrIllegalToken(advance int, _string string) token.Token {
 		ColumnEnd:   lx.columnCount,
 		ColumnStart: lx.columnCount - (advance - 1),
 		StartIndex:  lx.index - advance,
+		Advance:     advance,
 	}
 	token := token.Token{
 		Type:    token.ILLEGAL,
@@ -321,9 +326,19 @@ func (lx *Lexer) NextToken() *token.Token {
 	case ']':
 		tok = lx.makeToken(0, token.RSBRACE)
 	case '<':
-		tok = lx.makeToken(0, token.LESS)
+		if lx.peekChar() == '=' {
+			lx.nextChar()
+			tok = lx.makeToken(1, token.LESS_EQ)
+		} else {
+			tok = lx.makeToken(0, token.LESS)
+		}
 	case '>':
-		tok = lx.makeToken(0, token.GREATER)
+		if lx.peekChar() == '=' {
+			lx.nextChar()
+			tok = lx.makeToken(1, token.GREATER_EQ)
+		} else {
+			tok = lx.makeToken(0, token.GREATER)
+		}
 	case '!':
 		if lx.peekChar() == '=' {
 			lx.nextChar()
