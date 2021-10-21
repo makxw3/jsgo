@@ -3,6 +3,7 @@ package ast
 import (
 	"bytes"
 	"fmt"
+	"jsgo/token"
 )
 
 type Node interface {
@@ -80,13 +81,13 @@ func (vd *VariableDeclaratorNode) NodeStr() string {
 type VariableDeclarationNode struct {
 	NodeLoc
 	Declarations []VariableDeclaratorNode
-	Kind         string // The kind of declaration i.e. let or var or const
+	Kind         token.TokenType // The kind of declaration i.e. let or var or const
 }
 
 func (vd *VariableDeclarationNode) StatementNode() {}
 func (vd *VariableDeclarationNode) NodeStr() string {
 	var out bytes.Buffer
-	out.WriteString("let ")
+	out.WriteString(string(vd.Kind) + " ")
 	for i, decl := range vd.Declarations {
 		out.WriteString(decl.NodeStr())
 		if i != len(vd.Declarations)-1 {

@@ -164,29 +164,31 @@ func (ps *Parser) parseBooleanLiteral() ast.Expression {
 }
 
 func (ps *Parser) parseVariableDeclarationStatement() ast.Statement {
-	var kind string
-	if ps.currentToken.Type == token.LET {
-		kind = "let"
-	} else if ps.currentToken.Type == token.CONST {
-		kind = "const"
-	} else {
-		kind = "var"
-	}
+	kind := ps.currentToken.Type
+	_startIndex := ps.currentToken.Loc.StartIndex
+	_declarations, _endIndex := ps.parseVariableDeclarations()
 	expr := ast.VariableDeclarationNode{
 		Kind:         kind,
-		Declarations: ps.parseVariableDeclarations(),
+		Declarations: _declarations,
+		NodeLoc: ast.NodeLoc{
+			NodeType:   "VariableDeclarationNode",
+			StartIndex: _startIndex,
+			EndIndex:   _endIndex,
+		},
 	}
 	return &expr
 }
 
-func (ps *Parser) parseVariableDeclarations() []ast.VariableDeclaratorNode {
+// int is the end index
+func (ps *Parser) parseVariableDeclarations() ([]ast.VariableDeclaratorNode, int) {
 	var variableDeclarations = []ast.VariableDeclaratorNode{}
 	// Expect the ps.peekToken == token.IDENTIFIER
 	if ps.peekToken.Type != token.IDENTIFIER {
 		// Move ps.currentToken to ps.peekToken
 		ps.advance()
-		ps.printError(fmt.Sprintf("Expected ps.peekToken.Type to be %s but found %s instead.\n", token.IDENTIFIER, ps.currentToken.Type))
-		return nil
+		ps.printError(fmt.Sprintf("Expected ps.currentToken.Type to be %s but found %s instead.\n", token.IDENTIFIER, ps.currentToken.Type))
+		_endIndex := ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance
+		return nil, _endIndex
 	}
 	// Move to the next token so that ps.currentToken is token.IDENTIFIER
 	ps.advance()
@@ -207,8 +209,9 @@ func (ps *Parser) parseVariableDeclarations() []ast.VariableDeclaratorNode {
 			if ps.peekToken.Type != token.IDENTIFIER {
 				// Advance so that ps.currentToken is the 'illegal' token
 				ps.advance()
-				ps.printError(fmt.Sprintf("Expected ps.peekToken.Type to be %s but got %s instead.\n", token.IDENTIFIER, ps.currentToken.Type))
-				return nil
+				ps.printError(fmt.Sprintf("Expected ps.currentToken.Type to be %s but got %s instead.\n", token.IDENTIFIER, ps.currentToken.Type))
+				_endIndex := ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance
+				return nil, _endIndex
 			}
 			// If ps.peekToken.Type is token.IDENTIFIER then advance so that ps.currentToken is token.IDENTIFIER
 			ps.advance()
@@ -219,7 +222,8 @@ func (ps *Parser) parseVariableDeclarations() []ast.VariableDeclaratorNode {
 			if ps.peekToken.Type == token.EOF || ps.peekToken.Type == token.ILLEGAL {
 				ps.advance()
 				ps.printError(fmt.Sprintf("Expected an Expression but found %s instead.\n", ps.currentToken.Type))
-				return nil
+				_endIndex := ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance
+				return nil, _endIndex
 			}
 			ps.advance()
 			// The next part should be an expression and thus any semantic or syntax errors that may arrise should
@@ -233,13 +237,15 @@ func (ps *Parser) parseVariableDeclarations() []ast.VariableDeclaratorNode {
 			// Expect ps.peekToken.Type == token.SEMI_COLON
 			if ps.peekToken.Type != token.SEMI_COLON {
 				ps.advance()
-				ps.printError(fmt.Sprintf("Expected ps.peekToken.Type to be %s but found %s instead.\n", token.SEMI_COLON, ps.currentToken.Type))
-				return nil
+				ps.printError(fmt.Sprintf("Expected ps.currentToken.Type to be %s but found %s instead.\n", token.SEMI_COLON, ps.currentToken.Type))
+				_endIndex := ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance
+				return nil, _endIndex
 			}
 			// Advance so that ps.currentToken.Type == token.SEMI_COLON
 			ps.advance()
 			// Return the variableDeclaration lists
-			return variableDeclarations
+			_endIndex := ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance
+			return variableDeclarations, _endIndex
 		case token.SEMI_COLON:
 			name := ps.parseIdentifierLiteral()
 			decl := ast.VariableDeclaratorNode{
@@ -249,13 +255,15 @@ func (ps *Parser) parseVariableDeclarations() []ast.VariableDeclaratorNode {
 			variableDeclarations = append(variableDeclarations, decl)
 			// Advance so that ps.currentToken.Type == token.SEMI_COLON
 			ps.advance()
-			return variableDeclarations
+			_endIndex := ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance
+			return variableDeclarations, _endIndex
 		default:
 			// This means that ps.peekToken.Type != ',' or ';' or '='
 			// Advance so that ps.currentToken is the 'illegal' token
 			ps.advance()
-			ps.printError(fmt.Sprintf("Expected ps.peekToken to be either ',' or ';' or '=' but found %s instead.\n", ps.currentToken.Type))
-			return nil
+			ps.printError(fmt.Sprintf("Expected ps.currentToken to be either ',' or ';' or '=' but found %s instead.\n", ps.currentToken.Type))
+			_endIndex := ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance
+			return nil, _endIndex
 		}
 	}
 }
@@ -273,6 +281,10 @@ func (ps *Parser) PrattParse(prevOp token.TokenType) ast.Expression {
 func (ps *Parser) ParseStatement() ast.Statement {
 	switch ps.currentToken.Type {
 	case token.LET:
+		return ps.parseVariableDeclarationStatement()
+	case token.VAR:
+		return ps.parseVariableDeclarationStatement()
+	case token.CONST:
 		return ps.parseVariableDeclarationStatement()
 	default:
 		return nil
