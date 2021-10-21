@@ -133,3 +133,22 @@ func (es *ExpressionStatement) StatementNode() {}
 func (es *ExpressionStatement) NodeStr() string {
 	return es.Expression.NodeStr()
 }
+
+/** Binary Expressions **/
+type BinaryExpression struct {
+	NodeLoc
+	Left  Expression
+	Op    string
+	Right Expression
+}
+
+func (be *BinaryExpression) ExpressionNode() {}
+func (be *BinaryExpression) NodeStr() string {
+	var out bytes.Buffer
+	out.WriteString("(")
+	out.WriteString(be.Left.NodeStr())
+	out.WriteString(be.Op)
+	out.WriteString(be.Right.NodeStr())
+	out.WriteString(")")
+	return out.String()
+}

@@ -31,6 +31,12 @@ func Get(lx *lexer.Lexer) *Parser {
 	ps.addPrefixParseFn(token.FALSE, ps.parseBooleanLiteral)
 	ps.addPrefixParseFn(token.STRING, ps.parseStringLiteral)
 	ps.addPrefixParseFn(token.NOT, ps.parseLogicalNotOperator)
+	ps.addInfixParseFn(token.PLUS, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.MINUS, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.ASTERISK, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.SLASH, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.MODULUS, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.POWER, ps.parseBinaryExpression)
 	return &ps
 }
 
@@ -296,13 +302,54 @@ func (ps *Parser) parseLogicalNotOperator() ast.Expression {
 	return &expr
 }
 
+func (ps *Parser) parseBinaryExpression(left ast.Expression) ast.Expression {
+	_startIndex := ps.currentToken.Loc.StartIndex
+	expr := ast.BinaryExpression{
+		Left: left,
+		Op:   ps.currentToken.Literal,
+	}
+	operator := ps.currentToken.Type
+	ps.advance()
+	expr.Right = ps.prattParse(operator)
+	expr.NodeLoc = ast.NodeLoc{
+		NodeType:   "BinaryExpressionNode",
+		StartIndex: _startIndex,
+		EndIndex:   ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance,
+	}
+	return &expr
+}
+
+func (ps *Parser) evalRightFirst(op token.TokenType) bool {
+	peekTokenPrec, _ := precedence(ps.peekToken.Type)
+	opPrec, opAss := precedence(op)
+
+	if ps.peekToken.Type == op {
+		if opAss == 'R' {
+			return true
+		}
+	}
+	if peekTokenPrec > opPrec {
+		return true
+	}
+	return false
+}
+
 func (ps *Parser) prattParse(prevOp token.TokenType) ast.Expression {
 	parseFn, ok := ps.prefixParseFns[ps.currentToken.Type]
 	if !ok {
-		fmt.Printf("Error! No prefix parse func found for the token-type %s\n", ps.currentToken.Type)
+		fmt.Printf("Error! No prefix parse func found for TokenType %s\n", ps.currentToken.Type)
 		return nil
 	}
 	leftExpr := parseFn()
+	for ps.evalRightFirst(prevOp) {
+		parseFn, ok := ps.infixParseFns[ps.peekToken.Type]
+		if !ok {
+			fmt.Printf("Error! No infix parse func found for TokenType %s\n", ps.peekToken.Type)
+		}
+		// Adavace so that ps.currentToken is the operator
+		ps.advance()
+		leftExpr = parseFn(leftExpr)
+	}
 	return leftExpr
 }
 
