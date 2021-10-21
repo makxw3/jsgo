@@ -29,6 +29,8 @@ func Get(lx *lexer.Lexer) *Parser {
 	ps.addPrefixParseFn(token.IDENTIFIER, ps.parseIdentifierLiteral)
 	ps.addPrefixParseFn(token.TRUE, ps.parseBooleanLiteral)
 	ps.addPrefixParseFn(token.FALSE, ps.parseBooleanLiteral)
+	ps.addPrefixParseFn(token.STRING, ps.parseStringLiteral)
+	ps.addPrefixParseFn(token.NOT, ps.parseLogicalNotOperator)
 	return &ps
 }
 
@@ -61,6 +63,8 @@ func precedence(op token.TokenType) (int, byte) {
 		return 40, 'L'
 	case token.EQ:
 		return 50, 'L'
+	case token.NOT_EQ:
+		return 50, 'L'
 	case token.LESS:
 		return 60, 'L'
 	case token.LESS_EQ:
@@ -83,6 +87,8 @@ func precedence(op token.TokenType) (int, byte) {
 		return 80, 'L'
 	case token.POWER:
 		return 90, 'R'
+	case token.NOT:
+		return 100, 'R'
 	case token.TYPEOF:
 		return 100, 'R'
 	case token.POS_PLUS:
@@ -163,6 +169,18 @@ func (ps *Parser) parseBooleanLiteral() ast.Expression {
 	return &expr
 }
 
+func (ps *Parser) parseStringLiteral() ast.Expression {
+	expr := ast.StringLiteralNode{
+		Value: ps.currentToken.Literal,
+		NodeLoc: ast.NodeLoc{
+			NodeType:   "StringLiteralNode",
+			StartIndex: ps.currentToken.Loc.StartIndex,
+			EndIndex:   ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance,
+		},
+	}
+	return &expr
+}
+
 func (ps *Parser) parseVariableDeclarationStatement() ast.Statement {
 	kind := ps.currentToken.Type
 	_startIndex := ps.currentToken.Loc.StartIndex
@@ -228,7 +246,7 @@ func (ps *Parser) parseVariableDeclarations() ([]ast.VariableDeclaratorNode, int
 			ps.advance()
 			// The next part should be an expression and thus any semantic or syntax errors that may arrise should
 			// be handled with the parsing functions
-			expr := ps.PrattParse(token.NILL)
+			expr := ps.prattParse(token.NILL)
 			decl := ast.VariableDeclaratorNode{
 				Identifier: name.(*ast.IndentifierNode),
 				Init:       expr,
@@ -268,7 +286,17 @@ func (ps *Parser) parseVariableDeclarations() ([]ast.VariableDeclaratorNode, int
 	}
 }
 
-func (ps *Parser) PrattParse(prevOp token.TokenType) ast.Expression {
+func (ps *Parser) parseLogicalNotOperator() ast.Expression {
+	// Adavance so that ps.currentToken is the first token in the expression
+	ps.advance()
+	parsedExpr := ps.prattParse(token.NOT)
+	expr := ast.LogicalNotExpression{
+		Value: parsedExpr,
+	}
+	return &expr
+}
+
+func (ps *Parser) prattParse(prevOp token.TokenType) ast.Expression {
 	parseFn, ok := ps.prefixParseFns[ps.currentToken.Type]
 	if !ok {
 		fmt.Printf("Error! No prefix parse func found for the token-type %s\n", ps.currentToken.Type)
@@ -276,6 +304,26 @@ func (ps *Parser) PrattParse(prevOp token.TokenType) ast.Expression {
 	}
 	leftExpr := parseFn()
 	return leftExpr
+}
+
+func (ps *Parser) parseExpressionStatement() ast.Statement {
+	_startIndex := ps.currentToken.Loc.StartIndex
+	expr := ps.prattParse(token.NILL)
+	// After every statement there should be a semi-colon
+	if ps.peekToken.Type != token.SEMI_COLON {
+		ps.advance()
+		ps.printError(fmt.Sprintf("Expected ps.currentToken.Type to be %s but got %s instead.\n", token.SEMI_COLON, ps.currentToken.Type))
+		return nil
+	}
+	exprStmt := ast.ExpressionStatement{
+		Expression: expr,
+		NodeLoc: ast.NodeLoc{
+			NodeType:   "ExpressionStatement",
+			StartIndex: _startIndex,
+			EndIndex:   ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance,
+		},
+	}
+	return &exprStmt
 }
 
 func (ps *Parser) ParseStatement() ast.Statement {
@@ -287,6 +335,6 @@ func (ps *Parser) ParseStatement() ast.Statement {
 	case token.CONST:
 		return ps.parseVariableDeclarationStatement()
 	default:
-		return nil
+		return ps.parseExpressionStatement()
 	}
 }

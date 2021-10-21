@@ -60,6 +60,17 @@ func (bl *BooleanNode) NodeStr() string {
 	return fmt.Sprintf("%v", bl.Value)
 }
 
+/** Strings **/
+type StringLiteralNode struct {
+	NodeLoc
+	Value string
+}
+
+func (sl *StringLiteralNode) ExpressionNode() {}
+func (sl *StringLiteralNode) NodeStr() string {
+	return "\"" + sl.Value + "\""
+}
+
 /** Variable Declarations **/
 type VariableDeclaratorNode struct {
 	NodeLoc
@@ -95,4 +106,30 @@ func (vd *VariableDeclarationNode) NodeStr() string {
 		}
 	}
 	return out.String()
+}
+
+/** Logial Not Operator **/
+type LogicalNotExpression struct {
+	Value Expression
+}
+
+func (lne *LogicalNotExpression) ExpressionNode() {}
+func (lne *LogicalNotExpression) NodeStr() string {
+	var out bytes.Buffer
+	out.WriteString("!")
+	out.WriteString("(")
+	out.WriteString(lne.Value.NodeStr())
+	out.WriteString(")")
+	return out.String()
+}
+
+/** Expression Statement **/
+type ExpressionStatement struct {
+	NodeLoc
+	Expression Expression
+}
+
+func (es *ExpressionStatement) StatementNode() {}
+func (es *ExpressionStatement) NodeStr() string {
+	return es.Expression.NodeStr()
 }
