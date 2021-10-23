@@ -70,6 +70,7 @@ const (
 	ELSE      = "ELSE"
 	SWITCH    = "SWITCH"
 	CASE      = "CASE"
+	BREAK     = "BREAK"
 	DEFAULT   = "DEFAULT"
 	RETURN    = "RETURN"
 	FUNCTION  = "FUNCTION"

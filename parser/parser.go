@@ -472,6 +472,120 @@ func (ps *Parser) parseIfStatement() ast.Statement {
 	return &ifStmt
 }
 
+func (ps *Parser) parseBreakStatement() ast.Statement {
+	stmt := ast.BreakStatement{}
+	// Expect that ps.peekToken is token.SEMI_COLON
+	if !ps.expectPeek(token.SEMI_COLON) {
+		return nil
+	}
+	return &stmt
+}
+
+func (ps *Parser) parseCaseBlockStatement() ast.BlockStatementNode {
+	blockStmt := ast.BlockStatementNode{
+		Statements: []ast.Statement{},
+	}
+	for {
+		switch ps.peekToken.Type {
+		case token.BREAK:
+			// Advance so that ps.currentToken is token.BREAK
+			ps.advance()
+			brStmt := ps.parseBreakStatement()
+			blockStmt.Statements = append(blockStmt.Statements, brStmt)
+			return blockStmt
+		case token.CASE:
+			return blockStmt
+		case token.DEFAULT:
+			return blockStmt
+		default:
+			// Check if ps.peekToken is at the end of the switch statement
+			if ps.peekToken.Type == token.RCBRACE {
+				return blockStmt
+			}
+			// ps.currentToken is already at the begining of the Statement
+			stmt := ps.parseStatement()
+			blockStmt.Statements = append(blockStmt.Statements, stmt)
+		}
+	}
+}
+
+func (ps *Parser) parseSwitchCases() []ast.SwitchCase {
+	_cases := []ast.SwitchCase{}
+	if ps.peekToken.Type == token.CASE || ps.peekToken.Type == token.DEFAULT {
+		for {
+			switch ps.peekToken.Type {
+			case token.CASE:
+				switchCase := ast.SwitchCase{}
+				// Advance so that ps.currentToken is token.CASE
+				ps.advance()
+				// Advance so that ps.currentToken is at the begining of the expression
+				ps.advance()
+				testExpr := ps.prattParse(token.NILL)
+				// Expect that ps.peekToken is token.COLON
+				if !ps.expectPeek(token.COLON) {
+					return nil
+				}
+				// Parse the blockStatement for the consequnce
+				// Advance so that ps.currentToken is at the begining of the blockStatemet
+				ps.advance()
+				blockStmt := ps.parseCaseBlockStatement()
+				switchCase.TestExpr = testExpr
+				switchCase.Consequence = &blockStmt
+				_cases = append(_cases, switchCase)
+			case token.DEFAULT:
+				switchCase := ast.SwitchCase{}
+				// Advance so that ps.currentToken is token.DEFAULT
+				ps.advance()
+				// Expect that ps.peekToken is token.COLON
+				if !ps.expectPeek(token.COLON) {
+					return nil
+				}
+				// Advance so that ps.currentToken is at the begining of the blockStatement
+				ps.advance()
+				blockStmt := ps.parseCaseBlockStatement()
+				switchCase.TestExpr = nil
+				switchCase.Consequence = &blockStmt
+				_cases = append(_cases, switchCase)
+			default:
+				if ps.peekToken.Type == token.RCBRACE {
+					// Advance so that ps.currentToken is at the end of the switch statement
+					ps.advance()
+					return _cases
+				} else {
+					ps.advance()
+					ps.printError(fmt.Sprintf("Expecected ps.currentToken to be %s but got %s instead.\n", token.RCBRACE, ps.currentToken.Type))
+					return nil
+				}
+			}
+		}
+	}
+	// Expect that ps.peekToken is either token.CASE or token.DEFAULT
+	ps.advance()
+	ps.printError(fmt.Sprintf("Expected ps.currentToken to be either %s or %s but got %s instead/.\n", token.CASE, token.DEFAULT, ps.currentToken.Type))
+	return nil
+}
+
+func (ps *Parser) parseSwithStatement() ast.Statement {
+	if !ps.expectPeek(token.LPAREN) {
+		return nil
+	}
+	// Advance so that ps.currentToken is at the begining of the testExpr
+	ps.advance()
+	testExpr := ps.prattParse(token.NILL)
+	if !ps.expectPeek(token.RPAREN) {
+		return nil
+	}
+	if !ps.expectPeek(token.LCBRACE) {
+		return nil
+	}
+	// ps.peekToken should be either token.CASE or token.DEFAULT
+	switchStmt := ast.SwitchStatement{
+		TestExpr: testExpr,
+	}
+	switchStmt.Cases = ps.parseSwitchCases()
+	return &switchStmt
+}
+
 func (ps *Parser) evalRightFirst(op token.TokenType) bool {
 	peekTokenPrec, _ := precedence(ps.peekToken.Type)
 	opPrec, opAss := precedence(op)
@@ -535,6 +649,8 @@ func (ps *Parser) ParseProgram() ast.Statement {
 	for ps.peekToken.Type != token.EOF {
 		stmt := ps.parseStatement()
 		pr.Statements = append(pr.Statements, stmt)
+		// Advance so that ps.currentToken is at the begining of the next Statement
+		ps.advance()
 	}
 	return &pr
 }
@@ -551,6 +667,8 @@ func (ps *Parser) parseStatement() ast.Statement {
 		return ps.parseReturnStatement()
 	case token.IF:
 		return ps.parseIfStatement()
+	case token.SWITCH:
+		return ps.parseSwithStatement()
 	default:
 		return ps.parseExpressionStatement()
 	}

@@ -37,7 +37,7 @@ func (pr *Program) NodeStr() string {
 	var out bytes.Buffer
 	for _, stmt := range pr.Statements {
 		if stmt != nil {
-			out.WriteString(stmt.NodeStr())
+			out.WriteString(stmt.NodeStr() + "\n")
 		}
 	}
 	return out.String()
@@ -244,4 +244,63 @@ func (ifs *IfStatementNode) NodeStr() string {
 		out.WriteString("}")
 	}
 	return out.String()
+}
+
+/** Switch Case Statements **/
+// default is also case but with a null testExpr and a null Conseqeunce
+type SwitchCase struct {
+	NodeLoc
+	TestExpr    Expression // The expression for that case i.e. case '<expr>':
+	Consequence *BlockStatementNode
+}
+
+func (sc *SwitchCase) StatementNode() {}
+func (sc *SwitchCase) NodeStr() string {
+	var out bytes.Buffer
+	out.WriteString("{")
+	if sc.TestExpr == nil {
+		out.WriteString("default ")
+	} else {
+		out.WriteString("case ")
+	}
+	if sc.TestExpr != nil {
+		out.WriteString(sc.TestExpr.NodeStr())
+	}
+	out.WriteString(":")
+	if sc.Consequence != nil {
+		out.WriteString("{")
+		out.WriteString(sc.Consequence.NodeStr())
+		out.WriteString("}")
+	}
+	out.WriteString("}")
+	return out.String()
+}
+
+type SwitchStatement struct {
+	NodeLoc
+	TestExpr Expression   // The expression that ie being tested against i.e. switch(<expr>)
+	Cases    []SwitchCase // The case statements
+}
+
+func (ss *SwitchStatement) StatementNode() {}
+func (ss *SwitchStatement) NodeStr() string {
+	var out bytes.Buffer
+	out.WriteString("switch ")
+	out.WriteString("(")
+	out.WriteString(ss.TestExpr.NodeStr())
+	out.WriteString(")")
+	out.WriteString(" {")
+	for _, _case := range ss.Cases {
+		out.WriteString(_case.NodeStr())
+	}
+	return out.String()
+}
+
+type BreakStatement struct {
+	NodeLoc
+}
+
+func (br *BreakStatement) StatementNode() {}
+func (br *BreakStatement) NodeStr() string {
+	return "break;"
 }
