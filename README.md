@@ -1,4 +1,4 @@
-# `jsgo` is an implementation of some javascript features in `Go-lang`. It is for education purpose only and is done as a practice project.
+# `jsgo` is parser for some of javascript features in `Go-lang`. It is for education purpose only and is done as a practice project.
 
 ## Supported javascript features
 - Variable declarations using `let`, `var` and `const`
