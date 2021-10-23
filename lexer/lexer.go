@@ -261,6 +261,7 @@ func (lx *Lexer) NextToken() *token.Token {
 			lx.nextChar()
 			tok = lx.makeToken(1, token.EQ_MINUS)
 		} else if lx.peekChar() == '-' {
+			lx.nextChar()
 			tok = lx.makeToken(1, token.POS_MINUS)
 		} else {
 			tok = lx.makeToken(0, token.MINUS)

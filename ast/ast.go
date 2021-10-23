@@ -26,6 +26,23 @@ type NodeLoc struct {
 	EndIndex   int    // The end index of the last token
 }
 
+/** The Program is the root of the ast**/
+type Program struct {
+	NodeLoc
+	Statements []Statement
+}
+
+func (pr *Program) StatementNode() {}
+func (pr *Program) NodeStr() string {
+	var out bytes.Buffer
+	for _, stmt := range pr.Statements {
+		if stmt != nil {
+			out.WriteString(stmt.NodeStr())
+		}
+	}
+	return out.String()
+}
+
 /** Identifier **/
 type IndentifierNode struct {
 	NodeLoc
@@ -131,7 +148,10 @@ type ExpressionStatement struct {
 
 func (es *ExpressionStatement) StatementNode() {}
 func (es *ExpressionStatement) NodeStr() string {
-	return es.Expression.NodeStr()
+	if es.Expression != nil {
+		return es.Expression.NodeStr()
+	}
+	return ""
 }
 
 /** Binary Expressions **/
@@ -150,5 +170,78 @@ func (be *BinaryExpression) NodeStr() string {
 	out.WriteString(be.Op)
 	out.WriteString(be.Right.NodeStr())
 	out.WriteString(")")
+	return out.String()
+}
+
+/** Return Statements **/
+type ReturnStatementNode struct {
+	NodeLoc
+	Expression Expression
+}
+
+func (rs *ReturnStatementNode) StatementNode() {}
+func (rs *ReturnStatementNode) NodeStr() string {
+	var out bytes.Buffer
+	out.WriteString("return ")
+	if rs.Expression != nil {
+		out.WriteString(rs.Expression.NodeStr())
+	}
+	return out.String()
+}
+
+/** Use prefix parsing functions to parse post-fix operators **/
+type PostfixExpression struct {
+	NodeLoc
+	Op         token.Token // The postfix operator
+	Expression Expression
+}
+
+func (pe *PostfixExpression) ExpressionNode() {}
+func (pe *PostfixExpression) NodeStr() string {
+	var out bytes.Buffer
+	out.WriteString("(")
+	if pe.Expression != nil {
+		out.WriteString(pe.Expression.NodeStr())
+	}
+	out.WriteString(")")
+	out.WriteString(pe.Op.Literal)
+	return out.String()
+}
+
+/** Block Statement **/
+type BlockStatementNode struct {
+	Statements []Statement
+}
+
+func (bl *BlockStatementNode) StatementNode() {}
+func (bl *BlockStatementNode) NodeStr() string {
+	var out bytes.Buffer
+	for _, stmt := range bl.Statements {
+		out.WriteString(stmt.NodeStr())
+	}
+	return out.String()
+}
+
+/** IF ELSE Statements **/
+type IfStatementNode struct {
+	NodeLoc
+	Test        Expression // The expression that should be tested
+	Consequence *BlockStatementNode
+	Alternate   *BlockStatementNode
+}
+
+func (ifs *IfStatementNode) StatementNode() {}
+func (ifs *IfStatementNode) NodeStr() string {
+	var out bytes.Buffer
+	out.WriteString("if (")
+	out.WriteString(ifs.Test.NodeStr())
+	out.WriteString(") {")
+	out.WriteString(ifs.Consequence.NodeStr())
+	out.WriteString("}")
+	if ifs.Alternate != nil {
+		out.WriteString(" else {")
+		out.WriteString(ifs.Alternate.NodeStr())
+		out.WriteString("}")
+	}
 	return out.String()
 }

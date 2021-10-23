@@ -31,12 +31,16 @@ func Get(lx *lexer.Lexer) *Parser {
 	ps.addPrefixParseFn(token.FALSE, ps.parseBooleanLiteral)
 	ps.addPrefixParseFn(token.STRING, ps.parseStringLiteral)
 	ps.addPrefixParseFn(token.NOT, ps.parseLogicalNotOperator)
+	ps.addPrefixParseFn(token.LPAREN, ps.parseGroupedExpression)
+
 	ps.addInfixParseFn(token.PLUS, ps.parseBinaryExpression)
 	ps.addInfixParseFn(token.MINUS, ps.parseBinaryExpression)
 	ps.addInfixParseFn(token.ASTERISK, ps.parseBinaryExpression)
 	ps.addInfixParseFn(token.SLASH, ps.parseBinaryExpression)
 	ps.addInfixParseFn(token.MODULUS, ps.parseBinaryExpression)
 	ps.addInfixParseFn(token.POWER, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.POS_PLUS, ps.parsePostfixExpression)
+	ps.addInfixParseFn(token.POS_MINUS, ps.parsePostfixExpression)
 	return &ps
 }
 
@@ -302,6 +306,7 @@ func (ps *Parser) parseLogicalNotOperator() ast.Expression {
 	return &expr
 }
 
+// TODO -> The value of _startIndex should be gotten from left
 func (ps *Parser) parseBinaryExpression(left ast.Expression) ast.Expression {
 	_startIndex := ps.currentToken.Loc.StartIndex
 	expr := ast.BinaryExpression{
@@ -317,6 +322,154 @@ func (ps *Parser) parseBinaryExpression(left ast.Expression) ast.Expression {
 		EndIndex:   ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance,
 	}
 	return &expr
+}
+
+func (ps *Parser) parseGroupedExpression() ast.Expression {
+	// Advance so that ps.currentToken is an expression
+	ps.advance()
+	expr := ps.prattParse(token.NILL)
+	// Expect the next token to be token.RPAREN
+	if ps.peekToken.Type != token.RPAREN {
+		// Advance so that the next token is the 'illegal' token
+		ps.printError(fmt.Sprintf("Expected ps.currentToken to be %s but got %s instead.\n", token.RPAREN, ps.currentToken.Type))
+		return nil
+	}
+	// Advance so that ps.currentToken is token.RPAREN
+	ps.advance()
+	return expr
+}
+
+func (ps *Parser) parseReturnStatement() ast.Statement {
+	_startIndex := ps.currentToken.Loc.StartIndex
+	// Advance so that ps.currentToken is the begining of the expression
+	ps.advance()
+	expr := ps.prattParse(token.NILL)
+	// Expect that ps.peekToken is token.SEMI_COLON
+	if ps.peekToken.Type != token.SEMI_COLON {
+		// Advance so that ps.currentToken is the 'illegal' token
+		ps.advance()
+		ps.printError(fmt.Sprintf("Expected ps.currentToken to be %s but got %s instead.\n", token.SEMI_COLON, ps.currentToken.Type))
+		return nil
+	}
+	// Advance so that ps.currentToken is token.SEMI_COLON
+	ps.advance()
+	returnExpr := ast.ReturnStatementNode{
+		Expression: expr,
+		NodeLoc: ast.NodeLoc{
+			NodeType:   "ReturnStatement",
+			StartIndex: _startIndex,
+			EndIndex:   ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance,
+		},
+	}
+	return &returnExpr
+}
+
+// TODO -> The value of startIndex should be gotten from left
+func (ps *Parser) parsePostfixExpression(left ast.Expression) ast.Expression {
+	// ps.currentToken  is the operator token
+	_startIndex := ps.currentToken.Loc.StartIndex
+	postExpr := ast.PostfixExpression{
+		Expression: left,
+		Op:         *ps.currentToken,
+		NodeLoc: ast.NodeLoc{
+			NodeType:   "PosfixExpression",
+			StartIndex: _startIndex,
+			EndIndex:   ps.currentToken.Loc.StartIndex + ps.currentToken.Loc.Advance,
+		},
+	}
+	return &postExpr
+}
+
+func (ps *Parser) parseBlockStatement() ast.Statement {
+	blockStmt := ast.BlockStatementNode{
+		Statements: []ast.Statement{},
+	}
+	for ps.peekToken.Type != token.EOF && ps.peekToken.Type != token.RCBRACE {
+		stmt := ps.parseStatement()
+		blockStmt.Statements = append(blockStmt.Statements, stmt)
+	}
+	return &blockStmt
+}
+
+// Expect peek checks if ps.peekToken is the correct token and advances
+func (ps *Parser) expectPeek(t token.TokenType) bool {
+	if ps.peekToken.Type != t {
+		ps.advance()
+		ps.printError(fmt.Sprintf("Expected ps.currentToken to be %s but found %s instead.\n", t, ps.currentToken.Type))
+		return false
+	}
+	ps.advance()
+	return true
+}
+
+func (ps *Parser) parseIfStatement() ast.Statement {
+	// Expect ps.peekToken to be token.LPAREN
+	if !ps.expectPeek(token.LPAREN) {
+		return nil
+	}
+	// Advance so that ps.currentToken is pointing to the beginging of the testExpr
+	ps.advance()
+	testExpr := ps.prattParse(token.NILL)
+	ifStmt := ast.IfStatementNode{
+		Test: testExpr,
+	}
+	// Expect ps.peekToken to be token.RPAREN
+	if !ps.expectPeek(token.RPAREN) {
+		return nil
+	}
+	if !ps.expectPeek(token.LCBRACE) {
+		return nil
+	}
+	// Chech if the blockStatement is empty i.e. if ps.peekToken.Type == token.RCBRACE
+	if ps.peekToken.Type == token.RCBRACE {
+		blockStmt := ast.BlockStatementNode{}
+		ifStmt.Consequence = &blockStmt
+	} else {
+		// Advance so that ps.currentToken is in the beginnig of the blockStatement
+		ps.advance()
+		blockStmt := ps.parseBlockStatement()
+		ifStmt.Consequence = blockStmt.(*ast.BlockStatementNode)
+	}
+	if !ps.expectPeek(token.RCBRACE) {
+		return nil
+	}
+	// Check if there is an else statement
+	if ps.peekToken.Type == token.ELSE {
+		ps.advance()
+		// Check if there is another 'if' statement for the 'if-else statement'
+		if ps.peekToken.Type == token.IF {
+			// Advance so that ps.currentToken is token.IF
+			ps.advance()
+			_blockStmt := ast.BlockStatementNode{
+				Statements: []ast.Statement{},
+			}
+			_ifStmt := ps.parseIfStatement()
+			_blockStmt.Statements = append(_blockStmt.Statements, _ifStmt)
+			// Expect that ps.peekToken is token.RCBRACE
+			ifStmt.Alternate = &_blockStmt
+			return &ifStmt
+		}
+		// Expect ps.peekToken to be token.LCBRACE
+		if !ps.expectPeek(token.LCBRACE) {
+			return nil
+		}
+		// Check if the blockStatement is empty i.e. if ps.peekToken is token.RCBRACE
+		if ps.peekToken.Type == token.RCBRACE {
+			// ps.advance()
+			_blockStmt := ast.BlockStatementNode{}
+			ifStmt.Alternate = &_blockStmt
+		} else {
+			// Advance so that ps.currentToken is in the begining of the blockStatement
+			ps.advance()
+			_blockStmt := ps.parseBlockStatement()
+			ifStmt.Alternate = _blockStmt.(*ast.BlockStatementNode)
+		}
+		// Expect that ps.peekToken is not token.EOF but token.RCBRACE
+		if !ps.expectPeek(token.RCBRACE) {
+			return nil
+		}
+	}
+	return &ifStmt
 }
 
 func (ps *Parser) evalRightFirst(op token.TokenType) bool {
@@ -362,6 +515,8 @@ func (ps *Parser) parseExpressionStatement() ast.Statement {
 		ps.printError(fmt.Sprintf("Expected ps.currentToken.Type to be %s but got %s instead.\n", token.SEMI_COLON, ps.currentToken.Type))
 		return nil
 	}
+	// Advance so that ps.currentToke is token.SEMI_COLON
+	ps.advance()
 	exprStmt := ast.ExpressionStatement{
 		Expression: expr,
 		NodeLoc: ast.NodeLoc{
@@ -373,7 +528,18 @@ func (ps *Parser) parseExpressionStatement() ast.Statement {
 	return &exprStmt
 }
 
-func (ps *Parser) ParseStatement() ast.Statement {
+func (ps *Parser) ParseProgram() ast.Statement {
+	pr := ast.Program{
+		Statements: []ast.Statement{},
+	}
+	for ps.peekToken.Type != token.EOF {
+		stmt := ps.parseStatement()
+		pr.Statements = append(pr.Statements, stmt)
+	}
+	return &pr
+}
+
+func (ps *Parser) parseStatement() ast.Statement {
 	switch ps.currentToken.Type {
 	case token.LET:
 		return ps.parseVariableDeclarationStatement()
@@ -381,6 +547,10 @@ func (ps *Parser) ParseStatement() ast.Statement {
 		return ps.parseVariableDeclarationStatement()
 	case token.CONST:
 		return ps.parseVariableDeclarationStatement()
+	case token.RETURN:
+		return ps.parseReturnStatement()
+	case token.IF:
+		return ps.parseIfStatement()
 	default:
 		return ps.parseExpressionStatement()
 	}
