@@ -336,3 +336,43 @@ func (fl *ForLoopStatement) NodeStr() string {
 	out.WriteString(" }")
 	return out.String()
 }
+
+/** Arrays **/
+type ArrayContainer struct {
+	NodeLoc
+	Elements []Expression
+}
+
+func (ac *ArrayContainer) ExpressionNode() {}
+func (ac *ArrayContainer) NodeStr() string {
+	var out bytes.Buffer
+	out.WriteString("[")
+	for i, e := range ac.Elements {
+		out.WriteString(e.NodeStr())
+		if i != len(ac.Elements)-1 {
+			out.WriteString(",")
+		}
+	}
+	out.WriteString("]")
+	return out.String()
+}
+
+/** Objects **/
+type ObjectExpression struct {
+	NodeLoc
+	Mapping map[IndentifierNode]Expression
+}
+
+func (oe *ObjectExpression) ExpressionNode() {}
+func (oe *ObjectExpression) NodeStr() string {
+	var out bytes.Buffer
+	out.WriteString("{")
+	for k, v := range oe.Mapping {
+		out.WriteString(k.NodeStr())
+		out.WriteString(":")
+		out.WriteString(v.NodeStr())
+		out.WriteString(",")
+	}
+	out.WriteString("}")
+	return out.String()
+}

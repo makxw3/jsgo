@@ -32,6 +32,8 @@ func Get(lx *lexer.Lexer) *Parser {
 	ps.addPrefixParseFn(token.STRING, ps.parseStringLiteral)
 	ps.addPrefixParseFn(token.NOT, ps.parseLogicalNotOperator)
 	ps.addPrefixParseFn(token.LPAREN, ps.parseGroupedExpression)
+	ps.addPrefixParseFn(token.LSBRACE, ps.parseArrayContainer)
+	ps.addPrefixParseFn(token.LCBRACE, ps.parseObjectExpression)
 
 	ps.addInfixParseFn(token.PLUS, ps.parseBinaryExpression)
 	ps.addInfixParseFn(token.MINUS, ps.parseBinaryExpression)
@@ -641,6 +643,69 @@ func (ps *Parser) parseForStatement() ast.Statement {
 		Body:   &_body,
 	}
 	return &forStmt
+}
+
+func (ps *Parser) parseArrayElements() []ast.Expression {
+	_elements := []ast.Expression{}
+	for {
+		// Parse the expression that is the element in the arrays
+		expr := ps.prattParse(token.NILL)
+		_elements = append(_elements, expr)
+		switch ps.peekToken.Type {
+		case token.COMMA:
+			ps.advance()
+			ps.advance()
+		case token.RSBRACE:
+			ps.advance()
+			return _elements
+		}
+	}
+}
+
+// prefixParseFn for token.LSBRACE
+func (ps *Parser) parseArrayContainer() ast.Expression {
+	// Advance so that ps.currentToken is the token at the begining of the first expression
+	ps.advance()
+	elmts := ps.parseArrayElements()
+	arrayContainer := ast.ArrayContainer{
+		Elements: elmts,
+	}
+	return &arrayContainer
+}
+
+func (ps *Parser) parseObjectMapping() map[ast.IndentifierNode]ast.Expression {
+	var mapping = map[ast.IndentifierNode]ast.Expression{}
+	for {
+		// Expect that ps.peekToken is token.IDENTIFIER
+		if !ps.expectPeek(token.IDENTIFIER) {
+			return nil
+		}
+		ident := ps.parseIdentifierLiteral()
+		__ident := ident.(*ast.IndentifierNode)
+		// Expect that ps.peekToken is token.COLON
+		if !ps.expectPeek(token.COLON) {
+			return nil
+		}
+		// Advance so that ps.currentToken is pointing to the first token of the expressin
+		ps.advance()
+		expr := ps.prattParse(token.NILL)
+		mapping[*__ident] = expr
+		switch ps.peekToken.Type {
+		case token.COMMA:
+			ps.advance()
+			if ps.peekToken.Type == token.RCBRACE {
+				ps.advance()
+				return mapping
+			}
+		}
+	}
+}
+
+// Prefix parse fn for token.LSBRACE
+func (ps *Parser) parseObjectExpression() ast.Expression {
+	oe := ast.ObjectExpression{}
+	oe.Mapping = ps.parseObjectMapping()
+	return &oe
 }
 
 func (ps *Parser) prattParse(prevOp token.TokenType) ast.Expression {
