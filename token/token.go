@@ -65,6 +65,7 @@ const (
 	UNDEFINED = "UNDEFINED"
 	TYPEOF    = "TYPEOF"
 	DO        = "DO"
+	FOR       = "FOR"
 	WHILE     = "WHILE"
 	IF        = "IF"
 	ELSE      = "ELSE"

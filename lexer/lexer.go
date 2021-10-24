@@ -154,6 +154,7 @@ var keywords = map[string]token.TokenType{
 	"of":        token.OF,
 	"in":        token.IN,
 	"break":     token.BREAK,
+	"for":       token.FOR,
 }
 
 func (lx *Lexer) skipAllWhiteSpaces() {

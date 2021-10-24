@@ -41,6 +41,14 @@ func Get(lx *lexer.Lexer) *Parser {
 	ps.addInfixParseFn(token.POWER, ps.parseBinaryExpression)
 	ps.addInfixParseFn(token.POS_PLUS, ps.parsePostfixExpression)
 	ps.addInfixParseFn(token.POS_MINUS, ps.parsePostfixExpression)
+	ps.addInfixParseFn(token.LESS, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.GREATER, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.LESS_EQ, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.GREATER_EQ, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.OR, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.AND, ps.parseBinaryExpression)
+	ps.addInfixParseFn(token.ASSIGN, ps.parseBinaryExpression)
+	// ps.addInfixParseFn(token.DOT, ps.parseBinaryExpression) --> Member Access Operator
 	return &ps
 }
 
@@ -601,6 +609,40 @@ func (ps *Parser) evalRightFirst(op token.TokenType) bool {
 	return false
 }
 
+func (ps *Parser) parseForStatement() ast.Statement {
+	// Expect that ps.peekToken is token.LPAREN
+	if !ps.expectPeek(token.LPAREN) {
+		return nil
+	}
+	// Advance so that ps.currentToken is at the begining of the Init Statement
+	ps.advance()
+	// Parse the first statement
+	_initStmt := ps.parseStatement()
+	// ps.currentToken is token.SEMI_COLON
+	// Advance so that ps.currentToken is at the beginig of the TestExpression
+	ps.advance()
+	_testExpr := ps.prattParse(token.NILL)
+	// Expect that ps.currentToken is token.SEMI_COLON
+	if !ps.expectPeek(token.SEMI_COLON) {
+		return nil
+	}
+	// Advance so that ps.currentToken is at the beginig of the UpdateExpresion
+	ps.advance()
+	_updateExpr := ps.prattParse(token.NILL)
+	// Expect that ps.peekToken is token.RPAREN
+	if !ps.expectPeek(token.RPAREN) {
+		return nil
+	}
+	_body := ast.BlockStatementNode{}
+	forStmt := ast.ForLoopStatement{
+		Init:   _initStmt,
+		Test:   _testExpr,
+		Update: _updateExpr,
+		Body:   &_body,
+	}
+	return &forStmt
+}
+
 func (ps *Parser) prattParse(prevOp token.TokenType) ast.Expression {
 	parseFn, ok := ps.prefixParseFns[ps.currentToken.Type]
 	if !ok {
@@ -669,6 +711,8 @@ func (ps *Parser) parseStatement() ast.Statement {
 		return ps.parseIfStatement()
 	case token.SWITCH:
 		return ps.parseSwithStatement()
+	case token.FOR:
+		return ps.parseForStatement()
 	default:
 		return ps.parseExpressionStatement()
 	}

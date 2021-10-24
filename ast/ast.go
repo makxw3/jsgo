@@ -304,3 +304,35 @@ func (br *BreakStatement) StatementNode() {}
 func (br *BreakStatement) NodeStr() string {
 	return "break;"
 }
+
+/** ForLoops **/
+type ForLoopStatement struct {
+	NodeLoc
+	Init   Statement           // An ExpressionStatement that is evaluated only once at the beginig of the loop
+	Test   Expression          // An ExpressionStatement that is evaluated before every loop
+	Update Expression          // An expressionStatement that is evaluated at the end of every loop
+	Body   *BlockStatementNode // The body of the for-loop
+}
+
+func (fl *ForLoopStatement) StatementNode() {}
+func (fl *ForLoopStatement) NodeStr() string {
+	var out bytes.Buffer
+	out.WriteString("for (")
+	if fl.Init != nil {
+		out.WriteString(fl.Init.NodeStr())
+	}
+	out.WriteString(";")
+	if fl.Test != nil {
+		out.WriteString(fl.Test.NodeStr())
+	}
+	out.WriteString(";")
+	if fl.Update != nil {
+		out.WriteString(fl.Update.NodeStr())
+	}
+	out.WriteString(") { ")
+	for _, stmt := range fl.Body.Statements {
+		out.WriteString(stmt.NodeStr())
+	}
+	out.WriteString(" }")
+	return out.String()
+}
